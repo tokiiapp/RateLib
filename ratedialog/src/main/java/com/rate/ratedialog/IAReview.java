@@ -9,6 +9,7 @@ import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -62,9 +63,14 @@ public class IAReview {
 
 
     void openDialogFeedback(Activity activity, String name, int logo, String email, int starnumber) {
-//        activity.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
 
-        BottomSheetDialog bottomSheerDialog = new BottomSheetDialog(activity, R.style.DialogStyle);
+        // Khởi tạo an toàn: Bỏ R.style.DialogStyle để hệ thống tự động dùng theme tương thích của project hiện tại (AndroidX hoặc Support cũ).
+        BottomSheetDialog bottomSheerDialog = new BottomSheetDialog(activity);
+
+        // Workaround: Đặt lại thuộc tính adjustResize bằng code để duy trì hành vi bàn phím đẩy layout lên thay vì dùng file style.xml.
+        if (bottomSheerDialog.getWindow() != null) {
+            bottomSheerDialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        }
 
         bottomSheerDialog.setOnShowListener(new DialogInterface.OnShowListener() {
             @Override
