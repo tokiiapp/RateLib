@@ -7,4 +7,20 @@
     <string name="rating_dialog_submit">Submit</string>
     <string name="rating_dialog_cancel">Cancel</string>
     <string name="rating_dialog_suggestions">Suggest us what went wrong and we\'ll work on it!</string>
+
+    <string name="rating_dialog_title_default">Enjoying the app?</string>
+    <string name="rating_dialog_title_app">Enjoying %1$s?</string>
+    <string name="rating_dialog_content_default">We\'d greatly appreciate it if you could rate us.</string>
+    <string name="rating_dialog_content_1">Oh no! What went wrong?</string>
+    <string name="rating_dialog_content_2">Sorry about that. How can we do better?</string>
+    <string name="rating_dialog_content_3">Thanks! Tell us how we can improve.</string>
+    <string name="rating_dialog_content_4">Great! Thanks for your support.</string>
+    <string name="rating_dialog_content_5">Awesome! You made our day.</string>
+    <string name="rating_dialog_rate">Rate</string>
+    <string name="rating_dialog_rate_now">Rate us</string>
+    <string name="rating_dialog_send_feedback">Send feedback</string>
+    <string name="rating_dialog_feedback_subtitle">Tell us how we can do better</string>
+    <string name="rating_dialog_feedback_hint">Share your thoughts…</string>
+    <string name="rating_dialog_feedback_empty">Feedback cannot be left blank</string>
+    <string name="rating_dialog_send">Send</string>
 </resources>

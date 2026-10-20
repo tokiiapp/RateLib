@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="rate_primary">#FF8B55</color>
+    <color name="rate_primary_soft">#3A2A22</color>
+    <color name="rate_surface">#1E1F24</color>
+    <color name="rate_surface_variant">#2A2C33</color>
+    <color name="rate_outline">#3A3D45</color>
+    <color name="rate_handle">#4A4D55</color>
+    <color name="rate_text_primary">#F2F3F5</color>
+    <color name="rate_text_secondary">#A3A8B5</color>
+</resources>

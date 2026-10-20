@@ -10,9 +10,12 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.TypedValue;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RatingBar;
 import android.widget.TextView;
@@ -20,6 +23,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatDialog;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 
 import com.willy.ratingbar.BaseRatingBar;
 import com.willy.ratingbar.RotationRatingBar;
@@ -41,11 +45,19 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
     private static final String RATED = "rated";
     private static final String DATE_FIRST = "date_count";
     private static final String SHOW_NEVER = "show_never";
+
+    /** Follow the device / app night mode. */
+    public static final int THEME_SYSTEM = 0;
+    public static final int THEME_LIGHT = 1;
+    public static final int THEME_DARK = 2;
+
     private String MyPrefs = "RatingDialog";
     private SharedPreferences sharedpreferences;
     private Activity context;
+    private Context uiContext;
     private Builder builder;
-    private TextView tvContent, tvNegative, tvPositive;
+    private ImageView ivEmoji;
+    private TextView tvTitle, tvContent, tvNegative, tvPositive;
     private RotationRatingBar ratingBar;
     private LinearLayout ratingButtons;
     Button btnRate;
@@ -56,6 +68,7 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
     private boolean ignoreRated = false;
     private boolean thresholdPassed = true;
     public int starnumber = 0;
+    private int accentColor;
 
     public RatingDialog(Activity context, Builder builder) {
         super(context);
@@ -76,8 +89,15 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setBackgroundDrawable(new ColorDrawable(android.graphics.Color.TRANSPARENT));
-        setContentView(R.layout.dialog_rating);
+        uiContext = RateUi.themedContext(context, builder.theme);
+        setContentView(LayoutInflater.from(uiContext).inflate(R.layout.dialog_rating, null));
 
+        int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
+        int width = Math.min((int) (screenWidth * 0.88f), RateUi.dp(context, 360));
+        getWindow().setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+
+        ivEmoji = findViewById(R.id.dialog_rating_emoji);
+        tvTitle = findViewById(R.id.dialog_rating_title);
         tvContent = (TextView) findViewById(R.id.dialog_rating_content);
         tvNegative = (TextView) findViewById(R.id.dialog_rating_button_negative);
         tvPositive = (TextView) findViewById(R.id.dialog_rating_button_positive);
@@ -90,18 +110,15 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
 
     private void init() {
 
-        GradientDrawable drawable = (GradientDrawable) context.getResources()
-                .getDrawable(R.drawable.bg_button);
-        drawable.mutate();
-        drawable.setColor(builder.ratingBarBackgroundColor);
-        btnRate.setBackground(drawable);
+        accentColor = RateUi.resolveColor(uiContext, builder.ratingBarBackgroundColor, R.color.rate_primary);
+        btnRate.setBackground(RateUi.filledButton(context, accentColor));
+        if (builder.ratingBarBackgroundColor != 0) {
+            GradientDrawable emojiBg = (GradientDrawable) ((View) ivEmoji.getParent()).getBackground().mutate();
+            emojiBg.setColor(ColorUtils.setAlphaComponent(accentColor, 36));
+        }
+        setRateEnabled(false);
+        ivEmoji.setImageResource(builder.emojis[3]);
 
-        btnRate.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-
-            }
-        });
         if (builder.isShowLate) {
             btnLate.setVisibility(View.VISIBLE);
         } else {
@@ -109,7 +126,7 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
         }
 
         if (builder.btnLate == null || builder.btnLate.equals("")) {
-            btnLate.setText("Maybe Later");
+            btnLate.setText(R.string.rating_dialog_maybe_later);
         } else {
             btnLate.setText(builder.btnLate);
         }
@@ -117,7 +134,9 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
         btnLate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                builder.maybeLaterCallback.onClick();
+                if (builder.maybeLaterCallback != null) {
+                    builder.maybeLaterCallback.onClick();
+                }
                 if (builder.isDismiss) {
                     dismiss();
                 }
@@ -127,10 +146,12 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
         btnRate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                builder.rateButtonCallback.onClick(starnumber);
+                if (builder.rateButtonCallback != null) {
+                    builder.rateButtonCallback.onClick(starnumber);
+                }
                 if (starnumber <= 3) {
                     dismiss();
-                    IAReview.getInstance().openDialogFeedback(context, builder.appName, builder.logo, builder.email, starnumber);
+                    IAReview.getInstance().openDialogFeedback(context, builder.appName, builder.logo, builder.email, starnumber, accentColor, builder.theme);
                 } else {
                     dismiss();
                     sharedpreferences = context.getSharedPreferences(MyPrefs, Context.MODE_PRIVATE);
@@ -151,7 +172,19 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
                 }
             }
         });
-        tvContent.setText("We’d greatly appreciate if you can rate us.");
+
+        if (builder.title != null && !builder.title.isEmpty()) {
+            tvTitle.setText(builder.title);
+        } else if (builder.appName != null && !builder.appName.isEmpty()) {
+            tvTitle.setText(context.getString(R.string.rating_dialog_title_app, builder.appName));
+        } else {
+            tvTitle.setText(R.string.rating_dialog_title_default);
+        }
+        if (builder.titleTextColor != 0) {
+            tvTitle.setTextColor(ContextCompat.getColor(uiContext, builder.titleTextColor));
+        }
+
+        tvContent.setText(R.string.rating_dialog_content_default);
         tvPositive.setText(builder.positiveText);
         tvNegative.setText(builder.negativeText);
 
@@ -159,7 +192,6 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
         context.getTheme().resolveAttribute(androidx.appcompat.R.attr.colorAccent, typedValue, true);
         int color = typedValue.data;
 
-//        tvTitle.setTextColor(builder.titleTextColor != 0 ? ContextCompat.getColor(context, builder.titleTextColor) : ContextCompat.getColor(context, R.color.black));
         tvPositive.setTextColor(builder.positiveTextColor != 0 ? ContextCompat.getColor(context, builder.positiveTextColor) : color);
 
 
@@ -171,53 +203,35 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
             tvNegative.setBackgroundResource(builder.negativeBackgroundColor);
         }
 
-//        if (builder.ratingBarColor != 0) {
-//            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
-//                LayerDrawable stars = (LayerDrawable) ratingBar.getProgressDrawable();
-//                stars.getDrawable(2).setColorFilter(ContextCompat.getColor(context, builder.ratingBarColor), PorterDuff.Mode.SRC_ATOP);
-//                stars.getDrawable(1).setColorFilter(ContextCompat.getColor(context, builder.ratingBarColor), PorterDuff.Mode.SRC_ATOP);
-//                int ratingBarBackgroundColor = builder.ratingBarBackgroundColor != 0 ? builder.ratingBarBackgroundColor : R.color.grey_200;
-//                stars.getDrawable(0).setColorFilter(ContextCompat.getColor(context, ratingBarBackgroundColor), PorterDuff.Mode.SRC_ATOP);
-//            } else {
-//                Drawable stars = ratingBar.getProgressDrawable();
-//                DrawableCompat.setTint(stars, ContextCompat.getColor(context, builder.ratingBarColor));
-//            }
-//        }
-
-        Drawable d = context.getPackageManager().getApplicationIcon(context.getApplicationInfo());
-        //  ivIcon.setImageDrawable(builder.drawable != null ? builder.drawable : d);
-
         ratingBar.setOnRatingChangeListener(new BaseRatingBar.OnRatingChangeListener() {
             @Override
             public void onRatingChange(BaseRatingBar ratingBar, float rating, boolean fromUser) {
                 int b = Math.round(rating);
+                if (b == starnumber) {
+                    return;
+                }
                 starnumber = b;
                 switch (b) {
-                    case 0:
-                        tvContent.setText("We’d greatly appreciate if you can rate us.");
-                        break;
                     case 1:
-                        tvContent.setText("Please leave us some feedback");
+                        updateRatingState(builder.emojis[0], R.string.rating_dialog_content_1, R.string.rating_dialog_send_feedback);
                         break;
-
                     case 2:
-                        tvContent.setText("Please leave us some feedback");
+                        updateRatingState(builder.emojis[1], R.string.rating_dialog_content_2, R.string.rating_dialog_send_feedback);
                         break;
-
                     case 3:
-                        tvContent.setText("Please leave us some feedback");
+                        updateRatingState(builder.emojis[2], R.string.rating_dialog_content_3, R.string.rating_dialog_send_feedback);
                         break;
                     case 4:
-                        tvContent.setText("Thank for your feedback.");
+                        updateRatingState(builder.emojis[3], R.string.rating_dialog_content_4, R.string.rating_dialog_rate_now);
                         break;
                     case 5:
-                        tvContent.setText("Thank for your feedback.");
+                        updateRatingState(builder.emojis[4], R.string.rating_dialog_content_5, R.string.rating_dialog_rate_now);
                         break;
                     default:
-                        tvContent.setText("Please leave us some feedback");
+                        updateRatingState(builder.emojis[3], R.string.rating_dialog_content_default, R.string.rating_dialog_rate);
                         break;
                 }
-
+                setRateEnabled(b > 0);
             }
         });
         tvPositive.setOnClickListener(this);
@@ -226,6 +240,24 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
         if (session == 1) {
             tvNegative.setVisibility(View.GONE);
         }
+    }
+
+    private void updateRatingState(final int emojiRes, int contentRes, int buttonRes) {
+        ivEmoji.animate().cancel();
+        ivEmoji.animate().alpha(0f).setDuration(90).withEndAction(new Runnable() {
+            @Override
+            public void run() {
+                ivEmoji.setImageResource(emojiRes);
+                ivEmoji.animate().alpha(1f).setDuration(160).start();
+            }
+        }).start();
+        tvContent.setText(contentRes);
+        btnRate.setText(buttonRes);
+    }
+
+    private void setRateEnabled(boolean enabled) {
+        btnRate.setEnabled(enabled);
+        btnRate.animate().alpha(enabled ? 1f : 0.45f).setDuration(150).start();
     }
 
     @Override
@@ -433,6 +465,11 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
         private float threshold = 1;
         private int date = 1;
         private boolean ignoreRated = true;
+        private int theme = THEME_SYSTEM;
+        private int[] emojis = {
+                R.drawable.rate_emoji_1, R.drawable.rate_emoji_2, R.drawable.rate_emoji_3,
+                R.drawable.rate_emoji_4, R.drawable.rate_emoji_5
+        };
 
         public interface RatingThresholdClearedListener {
             void onThresholdCleared(RatingDialog ratingDialog, float rating, boolean thresholdCleared);
@@ -458,7 +495,6 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
         }
 
         private void initText() {
-            title = context.getString(R.string.rating_dialog_experience);
             positiveText = context.getString(R.string.rating_dialog_maybe_later);
             negativeText = context.getString(R.string.rating_dialog_never);
         }
@@ -607,6 +643,25 @@ public class RatingDialog extends AppCompatDialog implements RatingBar.OnRatingB
 
         public Builder feedbackTextColor(int feedBackTextColor) {
             this.feedBackTextColor = feedBackTextColor;
+            return this;
+        }
+
+        /**
+         * @param theme {@link #THEME_SYSTEM} (default), {@link #THEME_LIGHT} or {@link #THEME_DARK}
+         */
+        public Builder theme(int theme) {
+            this.theme = theme;
+            return this;
+        }
+
+        /**
+         * Replaces the face shown above the stars: pass exactly 5 drawables, from 1 star to 5 stars.
+         */
+        public Builder emojiDrawables(int... drawables) {
+            if (drawables == null || drawables.length != 5) {
+                throw new IllegalArgumentException("emojiDrawables requires exactly 5 drawables");
+            }
+            this.emojis = drawables.clone();
             return this;
         }
 

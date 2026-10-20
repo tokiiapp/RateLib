@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
             .setTextButtonLater("Maybe later")
             .setOnlickMaybeLate { }
             .ratingButtonColor(com.rate.ratedialog.R.color.gnt_blue)
+            .theme(RatingDialog.THEME_SYSTEM) // THEME_SYSTEM (mặc định) / THEME_LIGHT / THEME_DARK
             .build()
 
         //Cancel On Touch Outside

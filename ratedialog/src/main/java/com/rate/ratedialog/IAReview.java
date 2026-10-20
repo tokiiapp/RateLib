@@ -3,25 +3,30 @@ package com.rate.ratedialog;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
-import android.os.Build;
-import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.RatingBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
+
 import com.google.android.gms.tasks.Task;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.bottomsheet.BottomSheetDialog;
 import com.google.android.play.core.review.ReviewInfo;
 import com.google.android.play.core.review.ReviewManager;
 import com.google.android.play.core.review.ReviewManagerFactory;
+import com.willy.ratingbar.BaseRatingBar;
 
 public class IAReview {
     private static volatile IAReview INSTANCE;
@@ -62,7 +67,7 @@ public class IAReview {
     }
 
 
-    void openDialogFeedback(Activity activity, String name, int logo, String email, int starnumber) {
+    void openDialogFeedback(Activity activity, String name, int logo, String email, int starnumber, int accentColor, int theme) {
 
         // Khởi tạo an toàn: Bỏ R.style.DialogStyle để hệ thống tự động dùng theme tương thích của project hiện tại (AndroidX hoặc Support cũ).
         BottomSheetDialog bottomSheerDialog = new BottomSheetDialog(activity);
@@ -75,29 +80,26 @@ public class IAReview {
         bottomSheerDialog.setOnShowListener(new DialogInterface.OnShowListener() {
             @Override
             public void onShow(DialogInterface dialog) {
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-//                        BottomSheetDialog d = (BottomSheetDialog) dialog;
-//                        FrameLayout bottomSheet = d.findViewById(R.id.design_bottom_sheet);
-//                        BottomSheetBehavior bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet);
-//                        bottomSheetBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-
-                    }
-                }, 0);
+                // Make the sheet container transparent so the rounded top corners of our layout show through.
+                FrameLayout bottomSheet = bottomSheerDialog.findViewById(com.google.android.material.R.id.design_bottom_sheet);
+                if (bottomSheet != null) {
+                    bottomSheet.setBackgroundColor(Color.TRANSPARENT);
+                    BottomSheetBehavior<FrameLayout> behavior = BottomSheetBehavior.from(bottomSheet);
+                    behavior.setSkipCollapsed(true);
+                    behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                }
             }
         });
 
-        View parentView = activity.getLayoutInflater().inflate(R.layout.dialog_feedback, null);
+        View parentView = LayoutInflater.from(RateUi.themedContext(activity, theme)).inflate(R.layout.dialog_feedback, null);
         bottomSheerDialog.setContentView(parentView);
         bottomSheerDialog.show();
         TextView tvcount = parentView.findViewById(R.id.count);
         ImageView imglogo = parentView.findViewById(R.id.logo);
         TextView tvAppName = parentView.findViewById(R.id.tvAppName);
         EditText body = parentView.findViewById(R.id.body);
-        RatingBar dialog_rating_rating_bar = parentView.findViewById(R.id.dialog_rating_rating_bar);
+        BaseRatingBar dialog_rating_rating_bar = parentView.findViewById(R.id.dialog_rating_rating_bar);
         dialog_rating_rating_bar.setRating(starnumber);
-//        body.requestFocus();
         body.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {
@@ -116,25 +118,17 @@ public class IAReview {
             }
         });
 
-//        body.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-//            @Override
-//            public void onFocusChange(View view, boolean hasFocus) {
-//                if (hasFocus){
-//                    outlinedTextField.setHintEnabled(true);
-//                }else{
-//                    outlinedTextField.setHintEnabled(false);
-//                }
-//
-//            }
-//        });
-
-
-        tvAppName.setText(name);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            imglogo.setImageDrawable(activity.getResources().getDrawable(logo, activity.getTheme()));
-        } else {
-            imglogo.setImageDrawable(activity.getResources().getDrawable(logo));
+        if (name == null || name.isEmpty()) {
+            name = activity.getApplicationInfo().loadLabel(activity.getPackageManager()).toString();
         }
+        tvAppName.setText(name);
+        imglogo.setClipToOutline(true);
+        if (logo != 0) {
+            imglogo.setImageDrawable(ContextCompat.getDrawable(activity, logo));
+        } else {
+            imglogo.setImageDrawable(activity.getApplicationInfo().loadIcon(activity.getPackageManager()));
+        }
+        final String appName = name;
 
         Button btnCancel = parentView.findViewById(R.id.btnCancel);
         btnCancel.setOnClickListener(new View.OnClickListener() {
@@ -145,11 +139,14 @@ public class IAReview {
         });
 
         Button btnSubmit = parentView.findViewById(R.id.btnSubmit);
+        btnSubmit.setBackground(RateUi.filledButton(activity, accentColor));
         btnSubmit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (body.getText().toString().length() <= 0) {
-                    Toast.makeText(activity, "Feedback cannot be left blank", Toast.LENGTH_SHORT).show();
+                if (body.getText().toString().trim().length() <= 0) {
+                    body.startAnimation(AnimationUtils.loadAnimation(activity, R.anim.shake));
+                    body.requestFocus();
+                    Toast.makeText(activity, R.string.rating_dialog_feedback_empty, Toast.LENGTH_SHORT).show();
                     return;
                 }
                 bottomSheerDialog.dismiss();
@@ -158,7 +155,7 @@ public class IAReview {
                 selectorIntent.setData(Uri.parse("mailto:"));
                 final Intent emailIntent = new Intent(Intent.ACTION_SEND);
                 emailIntent.putExtra(Intent.EXTRA_EMAIL, new String[]{email});
-                emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Feedback App " + name);
+                emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Feedback App " + appName);
                 emailIntent.putExtra(Intent.EXTRA_TEXT, "" + body.getText().toString());
                 emailIntent.setSelector(selectorIntent);
                 activity.startActivity(Intent.createChooser(emailIntent, "Send email..."));
